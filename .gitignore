@@ -1,0 +1,10 @@
+node_modules/
+*.log
+private/
+*.private.json
+*garmin-sync.json
+*private-starter.json
+__pycache__/
+.pytest_cache/
+.DS_Store
+docs/
