@@ -1,9 +1,9 @@
 // Pure, conservative training rules. Public code contains no personal loads.
 export const DEFAULT_PROGRAM = {
-  lower: { name: 'Lower · strength', exercises: [
-    { id: 'deadlift', name: 'Barbell deadlift', sets: 3, reps: [5, 5, 5], stepKg: 2.5, baseKg: null, restSec: 180 },
-    { id: 'goblet-squat', name: 'Goblet squat', sets: 3, reps: [8, 8, 8], stepKg: 2, baseKg: null, restSec: 120 },
-    { id: 'split-squat', name: 'Bulgarian split squat', sets: 2, reps: [8, 8], stepKg: 1, baseKg: null, restSec: 90 },
+  lower: { name: 'Lower · opt-in template', exercises: [
+    { id: 'squat', name: 'Barbell squat', sets: 5, reps: [5, 5, 5, 5, 5], stepKg: 2.5, baseKg: null, restSec: 180 },
+    { id: 'rdl', name: 'Romanian deadlift', sets: 3, reps: [8, 8, 8], stepKg: 2.5, baseKg: null, restSec: 120 },
+    { id: 'leg-press', name: 'Leg press', sets: 3, reps: [10, 10, 10], stepKg: 2.5, baseKg: null, restSec: 90 },
     { id: 'calf-raise', name: 'Standing calf raise', sets: 3, reps: [12, 12, 12], stepKg: 2.5, baseKg: null, restSec: 60 }
   ] },
   upper: { name: 'Upper · heavy-ish', exercises: [
@@ -21,6 +21,7 @@ export const DEFAULT_PROGRAM = {
     { id: 'rope-push', name: 'Rope tricep pushdown', sets: 3, reps: [10, 10, 10], stepKg: 2, baseKg: null, restSec: 60 }
   ] },
   pull: { name: 'Pull · back & arms', exercises: [
+    { id: 'deadlift', name: 'Barbell deadlift', sets: 3, reps: [5, 5, 5], stepKg: 2.5, baseKg: null, restSec: 180 },
     { id: 'pulldown', name: 'Lat pulldown', sets: 3, reps: [8, 8, 8], stepKg: 2, baseKg: null, restSec: 90 },
     { id: 'seated-row', name: 'Seated cable row', sets: 3, reps: [10, 10, 10], stepKg: 2, baseKg: null, restSec: 90 },
     { id: 'chest-row', name: 'Chest-supported dumbbell row', sets: 3, reps: [10, 10, 10], stepKg: 1, baseKg: null, restSec: 90 },
@@ -37,10 +38,10 @@ export const DEFAULT_PROGRAM = {
 
 const SLOTS = [
   { day: 'Sunday', gym: 'pump', optional: true },
-  { day: 'Monday', gym: 'lower' },
-  { day: 'Tuesday', gym: 'upper', run: 'easy' },
-  { day: 'Wednesday', recovery: true },
-  { day: 'Thursday', gym: 'push', run: 'quality' },
+  { day: 'Monday', gym: 'upper' },
+  { day: 'Tuesday', run: 'easy' },
+  { day: 'Wednesday', gym: 'push' },
+  { day: 'Thursday', run: 'quality' },
   { day: 'Friday', gym: 'pull' },
   { day: 'Saturday', run: 'long' }
 ];
@@ -49,10 +50,11 @@ export function weekSlots() { return SLOTS.map(s => ({ ...s })); }
 export function readinessBand(input = {}) {
   if (input.pain || input.ill) return { band: 'red', reason: 'Pain or illness: no hard training.' };
   const score = Number(input.score), feel = Number(input.feel), sleep = Number(input.sleepHours), soreness = Number(input.soreness);
-  if ((input.score !== '' && input.score != null && Number.isFinite(score) && score <= 25) || (input.feel && feel <= 1)) return { band: 'red', reason: 'Very low readiness. Recovery first.' };
-  if ((input.score !== '' && input.score != null && Number.isFinite(score) && score <= 50) ||
+  const validScore = input.score !== '' && input.score != null && Number.isFinite(score) && score >= 0 && score <= 100;
+  if ((validScore && score <= 25) || (input.feel && feel <= 1)) return { band: 'red', reason: 'Very low readiness. Recovery first.' };
+  if ((validScore && score <= 50) ||
       (input.feel && feel <= 2) || (input.sleepHours && sleep < 6) || soreness >= 2) return { band: 'amber', reason: 'Keep the intent; reduce the dose.' };
-  if ((input.score !== '' && input.score != null && Number.isFinite(score)) || (input.feel && feel >= 3)) return { band: 'green', reason: 'Normal session, with good technique.' };
+  if (validScore || (input.feel && feel >= 3)) return { band: 'green', reason: 'Normal session, with good technique.' };
   return { band: 'unknown', reason: 'Recovery data missing. Hold loads and calibrate by feel.' };
 }
 
@@ -73,10 +75,24 @@ export function suggestLoad(exercise, gymLogs = [], band = 'unknown') {
   return { kg: base, note: sets.length ? 'Repeat until every set hits the target at 2+ RIR.' : 'Reference load only; verify with warm-ups.' };
 }
 
-function variant(dateString) {
+function alternateFortnight(dateString) {
   const anchor = Date.UTC(2026, 9, 5);
   const index = Math.floor((Date.parse(dateString + 'T12:00:00Z') - anchor) / (14 * 86400000));
-  return ((index % 2) + 2) % 2 ? 'Try a different curl or rear-delt accessory this fortnight; keep main lifts.' : 'Keep your usual accessories this fortnight.';
+  return ((index % 2) + 2) % 2 === 1;
+}
+
+function variant(dateString) {
+  return alternateFortnight(dateString) ? 'One accessory rotates this fortnight; keep main lifts.' : 'Keep your usual accessories this fortnight.';
+}
+
+function rotateAccessory(exercise, gymId, program) {
+  if (gymId === 'upper' && exercise.id === 'face-pull') {
+    return program.pull?.exercises?.find(e => e.id === 'rear-delt') || exercise;
+  }
+  if (gymId === 'pull' && exercise.id === 'ez-curl') {
+    return { ...exercise, id: 'incline-curl', name: 'Incline dumbbell curl', baseKg: null, stepKg: 1 };
+  }
+  return exercise;
 }
 
 export function recommendDay(dateString, recovery = {}, gymLogs = [], runs = [], program = DEFAULT_PROGRAM) {
@@ -84,12 +100,19 @@ export function recommendDay(dateString, recovery = {}, gymLogs = [], runs = [],
   const readiness = readinessBand(recovery);
   const variation = variant(dateString);
   if (readiness.band === 'red') return { readiness, title: 'Recovery day', reason: readiness.reason, gym: null, run: null, variation };
-  const gym = slot.gym && (readiness.band !== 'amber' || !slot.optional) ? {
-    id: slot.gym, name: program[slot.gym]?.name || slot.gym,
+  const core = ['upper', 'push', 'pull'];
+  const latestCore = gymLogs.filter(log => core.includes(log.gymId) && log.date <= dateString)
+    .sort((a,b) => a.date.localeCompare(b.date)).at(-1);
+  const nextCore = latestCore ? core[(core.indexOf(latestCore.gymId) + 1) % core.length] : 'upper';
+  const gymId = core.includes(slot.gym) ? nextCore : slot.gym;
+  const gym = gymId && (readiness.band !== 'amber' || !slot.optional) ? {
+    id: gymId, name: program[gymId]?.name || gymId,
     optional: !!slot.optional,
-    exercises: (program[slot.gym]?.exercises || []).map(e => ({ ...e,
-      sets: readiness.band === 'amber' ? Math.max(1, e.sets - 1) : e.sets,
-      prescription: suggestLoad(e, gymLogs, readiness.band) }))
+    exercises: (program[gymId]?.exercises || []).map(original => {
+      const e = alternateFortnight(dateString) ? rotateAccessory(original, gymId, program) : original;
+      return { ...e, sets: readiness.band === 'amber' ? Math.max(1, e.sets - 1) : e.sets,
+        prescription: suggestLoad(e, gymLogs, readiness.band) };
+    })
   } : null;
   const runKind = slot.run === 'quality' && readiness.band === 'amber' ? 'easy' : slot.run;
   const run = runKind ? { kind: runKind, durationMin: runKind === 'quality' ? '25–40' : runKind === 'long' ? '50–70' : '25–40',

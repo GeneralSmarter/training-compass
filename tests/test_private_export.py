@@ -12,8 +12,9 @@ class StarterTests(unittest.TestCase):
             ]}]}]}
         starter = build_starter(source)
         self.assertEqual(starter["program"]["upper"]["exercises"][0]["baseKg"], 60)
-        self.assertEqual(starter["program"]["lower"]["exercises"][0]["baseKg"], 80)
-        self.assertIsNone(starter["program"]["lower"]["exercises"][1]["baseKg"])
+        self.assertEqual(starter["program"]["pull"]["exercises"][0]["baseKg"], 80)
+        self.assertIsNone(starter["program"]["lower"]["exercises"][0]["baseKg"])
+        self.assertFalse(any(x["id"] == "deadlift" for x in starter["program"]["lower"]["exercises"]))
         self.assertNotIn("routines", starter)
 
 

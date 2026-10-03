@@ -1,6 +1,6 @@
 # Training Compass
 
-A static, local-first strength + running coach. **Public code, private data.** Four core gyms (Lower, Upper, Push, Pull), three runs, an optional Short Pump. The public repository contains no personal training records or weights. A private JEFIT starter file supplies reference loads only after you import it.
+A static, local-first strength + running coach. **Public code, private data.** Three active JEFIT gym days (Upper, Push, Pull), three runs, an optional Short Pump. Lower is an uncalibrated opt-in template, not part of the active plan. The public repository contains no personal training records or weights. A private JEFIT starter file supplies reference loads only after you import it.
 
 ## Use
 
@@ -14,7 +14,7 @@ A static, local-first strength + running coach. **Public code, private data.** F
 
 `npm test` and `python -m unittest discover -s tests -p 'test_private_export.py' -v`. Serve via `npm run serve`, then open `http://127.0.0.1:8765/`. No npm installation or external build step. Static assets use relative URLs so they work at a project Pages path.
 
-Generate the private starter from the saved JEFIT routine: `python tools/private_export.py seed`. The exporter excludes the inactive lower-day's unverified squat loads; it moves the existing Pull-day deadlift reference to the new Lower slot. This file is saved outside the repository. Neither JEFIT nor Garmin data is changed remotely.
+Generate the private starter from the saved JEFIT routine: `python tools/private_export.py seed`. Pull keeps its existing deadlift reference. No weights are copied from the inactive JEFIT lower day; choosing the Lower template requires deliberate calibration. This file is saved outside the repository. Neither JEFIT nor Garmin data is changed remotely.
 
 ## Honest sync boundary
 
@@ -22,7 +22,7 @@ The public static app cannot directly authenticate to Garmin Connect or continuo
 
 ## Training rules
 
-- Planned week: Monday Lower, Tuesday Upper + easy run, Wednesday recovery, Thursday Push + quality run, Friday Pull, Saturday long easy run, Sunday optional Short Pump or rest. Doubles are optional; do not cram missed days.
+- Planned week: Monday Upper, Tuesday easy run, Wednesday Push, Thursday quality run, Friday Pull (deadlifts stay here), Saturday long easy run, Sunday optional Short Pump or rest. Three active gym days plus the optional fourth; a fifth gym day or an active Lower day needs your explicit plan choice. Do not cram missed days.
 - Green: normal session, small load increase only after every set hits target with 2+ RIR. Amber: one less set/exercise, roughly 5% lighter, quality run turns easy. Red from pain/illness/very low readiness: no hard training. Unknown readiness: hold loads and calibrate by feel.
 - Main lifts stay stable. Accessory suggestions rotate at most fortnightly, not daily randomness.
 - This is a training decision aid, not a medical diagnosis. Stop and seek qualified advice for persistent or worsening pain, illness, or alarming symptoms.

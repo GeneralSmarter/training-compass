@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readinessBand, suggestLoad, recommendDay, parseGarminExport, mergeRuns, weekSlots } from '../src/engine.mjs';
+import { DEFAULT_PROGRAM, readinessBand, suggestLoad, recommendDay, parseGarminExport, mergeRuns, weekSlots } from '../src/engine.mjs';
 
 const lift = { id: 'bench', name: 'Bench press', baseKg: 60, reps: [5, 5], stepKg: 2.5 };
 
@@ -26,15 +26,22 @@ test('load rises only after all logged sets meet reps with two reps in reserve',
   assert.equal(suggestLoad(lift, logs, 'amber').kg < 60, true);
 });
 
-test('stable week keeps four core gyms, three runs, optional pump', () => {
+test('active Pull keeps its deadlift; inactive Lower has no copied Pull lift', () => {
+  assert.equal(DEFAULT_PROGRAM.pull.exercises[0].id, 'deadlift');
+  assert.equal(DEFAULT_PROGRAM.lower.exercises.some(x => x.id === 'deadlift'), false);
+});
+
+test('active JEFIT week uses Upper, Push, Pull; lower is never auto-scheduled', () => {
   const slots = weekSlots();
-  assert.equal(slots.filter(x => x.gym && !x.optional).length, 4);
+  assert.deepEqual(slots.filter(x => x.gym && !x.optional).map(x => x.gym), ['upper', 'push', 'pull']);
   assert.equal(slots.filter(x => x.run).length, 3);
   assert.equal(slots.find(x => x.gym === 'pump').optional, true);
+  assert.equal(slots.some(x => x.gym === 'lower'), false);
 });
 
 test('low readiness swaps quality run for easy work; red means recovery', () => {
-  assert.equal(recommendDay('2026-10-08', { score: 42, feel: 3 }, [], []).run.kind, 'easy');
+  const preceding = [{ date: '2026-10-05', gymId: 'lower' }, { date: '2026-10-06', gymId: 'upper' }];
+  assert.equal(recommendDay('2026-10-08', { score: 42, feel: 3 }, preceding, []).run.kind, 'easy');
   assert.equal(recommendDay('2026-10-08', { score: 95, pain: true }, [], []).gym, null);
 });
 
@@ -42,6 +49,26 @@ test('spice changes accessory no more often than every two weeks', () => {
   const a = recommendDay('2026-10-06', {}, [], []);
   const b = recommendDay('2026-10-13', {}, [], []);
   assert.deepEqual(a.variation, b.variation);
+});
+
+test('fortnightly variation changes one accessory but keeps the main lift and its load', () => {
+  const first = recommendDay('2026-10-05', { feel: 4 }, [], []);
+  const next = recommendDay('2026-10-19', { feel: 4 }, [], []);
+  assert.equal(first.gym.exercises[0].id, 'bench');
+  assert.equal(next.gym.exercises[0].id, 'bench');
+  assert.notEqual(first.gym.exercises.at(-1).id, next.gym.exercises.at(-1).id);
+});
+
+test('missed core gym day is resumed on the next gym slot without cramming', () => {
+  const wednesday = recommendDay('2026-10-07', { feel: 4 }, [], []);
+  assert.equal(wednesday.gym.id, 'upper');
+  const friday = recommendDay('2026-10-09', { feel: 4 }, [{ date: '2026-10-05', gymId: 'upper' }], []);
+  assert.equal(friday.gym.id, 'push');
+  assert.notEqual(friday.gym.id, 'lower');
+});
+
+test('invalid watch score does not produce a green signal', () => {
+  assert.equal(readinessBand({ score: 1000 }).band, 'unknown');
 });
 
 test('Garmin JSON deduplicates runs and never treats strength as running', () => {

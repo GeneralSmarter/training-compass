@@ -16,6 +16,22 @@ function validateState(data) {
   return data && data.version === 1 && data.program?.upper?.exercises && data.program?.lower?.exercises &&
     Array.isArray(data.gymLogs) && Array.isArray(data.runs) && data.recovery && data.imports;
 }
+function upgradeProgram(data) {
+  const pull = data.program?.pull?.exercises;
+  if (!Array.isArray(pull)) return false;
+  let changed = false;
+  if (!pull.some(ex => ex.id === 'deadlift')) {
+    const old = data.program.lower?.exercises?.find(ex => ex.id === 'deadlift');
+    pull.unshift({ ...clone(DEFAULT_PROGRAM.pull.exercises[0]), baseKg: old?.baseKg ?? null });
+    changed = true;
+  }
+  const lower = data.program.lower?.exercises;
+  if (lower?.map(ex => ex.id).join(',') === 'deadlift,goblet-squat,split-squat,calf-raise') {
+    data.program.lower = clone(DEFAULT_PROGRAM.lower);
+    changed = true;
+  }
+  return changed;
+}
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
@@ -24,7 +40,7 @@ function toast(message, error = false) {
 function load() {
   const raw = localStorage.getItem(KEY);
   if (!raw) { state = emptyState(); return true; }
-  try { const value = JSON.parse(raw); if (!validateState(value)) throw new Error('invalid'); state = value; return true; }
+  try { const value = JSON.parse(raw); if (!validateState(value)) throw new Error('invalid'); state = value; if (upgradeProgram(state)) save(); return true; }
   catch { $('normal-app').classList.add('hidden'); $('recovery-block').classList.remove('hidden'); return false; }
 }
 function badge(band) {
@@ -153,10 +169,10 @@ function wire() {
   $('link-garmin').addEventListener('click',linkGarmin); $('sync-now').addEventListener('click',syncFile);
   $('garmin-file').addEventListener('change',async e=>{if(e.target.files[0]) await importGarminFile(e.target.files[0]);e.target.value='';});
   $('import-starter').addEventListener('click',()=>$('starter-file').click());
-  $('starter-file').addEventListener('change',async e=>{try{const data=await readJSON(e.target.files[0]);if(data.version!==1||!data.program?.upper?.exercises||!data.program?.lower?.exercises)throw Error('Not a valid starter file.');for(const day of Object.values(data.program))for(const ex of day.exercises)if(!Number.isFinite(Number(ex.sets))||ex.sets<1||ex.sets>10||ex.baseKg!=null&&(!Number.isFinite(Number(ex.baseKg))||ex.baseKg<0||ex.baseKg>500))throw Error('Invalid exercise in starter.');state.program=data.program;state.imports.starterAt=new Date().toISOString();save();render();toast('Private starter loaded. Check loads before lifting.');}catch(err){toast(err.message,true);}e.target.value='';});
+  $('starter-file').addEventListener('change',async e=>{try{const data=await readJSON(e.target.files[0]);if(data.version!==1||!data.program?.upper?.exercises||!data.program?.lower?.exercises)throw Error('Not a valid starter file.');for(const day of Object.values(data.program))for(const ex of day.exercises)if(!Number.isFinite(Number(ex.sets))||ex.sets<1||ex.sets>10||ex.baseKg!=null&&(!Number.isFinite(Number(ex.baseKg))||ex.baseKg<0||ex.baseKg>500))throw Error('Invalid exercise in starter.');state.program=data.program;upgradeProgram(state);state.imports.starterAt=new Date().toISOString();save();render();toast('Private starter loaded. Check loads before lifting.');}catch(err){toast(err.message,true);}e.target.value='';});
   $('export-backup').addEventListener('click',()=>download(`training-compass-backup-${today}.json`,JSON.stringify(state,null,2)));
   $('import-backup').addEventListener('click',()=>$('backup-file').click());
-  $('backup-file').addEventListener('change',async e=>{try{const data=await readJSON(e.target.files[0]);if(!validateState(data))throw Error('Invalid backup; current data untouched.');if(!confirm('Replace this browser’s workout data with the backup? Export your current data first.'))return;localStorage.setItem(KEY,JSON.stringify(data));state=data;render();toast('Backup restored.');}catch(err){toast(err.message,true);}e.target.value='';});
+  $('backup-file').addEventListener('change',async e=>{try{const data=await readJSON(e.target.files[0]);if(!validateState(data))throw Error('Invalid backup; current data untouched.');if(!confirm('Replace this browser’s workout data with the backup? Export your current data first.'))return;upgradeProgram(data);localStorage.setItem(KEY,JSON.stringify(data));state=data;render();toast('Backup restored.');}catch(err){toast(err.message,true);}e.target.value='';});
 }
 $('raw-export').addEventListener('click',()=>download('training-compass-raw-recovery.json',localStorage.getItem(KEY)||''));
 if (load()) { wire(); render(); getHandle().then(handle=>{fileHandle=handle;renderSync();}).catch(()=>{}); }
