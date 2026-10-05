@@ -4,7 +4,7 @@ A static, local-first strength + running coach. **Public code, private data.** T
 
 ## Use
 
-1. Open the GitHub Pages app (URL in the deployment note).
+1. Open the [GeneralSmarter GitHub Pages app](https://generalsmarter.github.io/training-compass/).
 2. **Sync & backup → Load private starter**; select `%LOCALAPPDATA%/hermes/training-compass/private-starter.json` from the local computer. Verify each suggested load in warm-ups. The public site cannot read this file unless you choose it.
 3. Do a 30-second readiness check-in. Log sets including reps-in-reserve; progression uses completed sets rather than guessing. Pain/illness veto hard work.
 4. For runs, with the dedicated Garmin Chrome signed in, run from this project folder: `python tools/private_export.py sync`. In **Sync & backup**, choose `%LOCALAPPDATA%/hermes/training-compass/garmin-sync.json`. After a fresh local export, click **Sync now** to re-read the linked file (when the browser supports persistent file handles), or choose the file again. You can also log a run manually.
